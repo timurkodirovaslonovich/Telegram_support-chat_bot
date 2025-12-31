@@ -1,5 +1,6 @@
 package com.tim.supportBot
 
+import com.tim.supportBot.entity.ChatSession
 import com.tim.supportBot.entity.SimpleUser
 import com.tim.supportBot.repository.ChatSessionRepository
 import com.tim.supportBot.repository.UserRepository
@@ -41,7 +42,7 @@ class SupportBot(
     /**
      * Returns the bot token.  Read from the BOT_TOKEN environment variable for security.
      */
-    override fun getBotToken(): String = System.getenv("BOT_TOKEN") ?: ""
+    override fun getBotToken(): String = System.getenv("BOT_TOKEN") ?: "7948810036:AAE2pCFjmdMEJ6isr2Qpm-DcoFcIUh8CPXE"
 
     /**
      * The consumer used by the long polling framework.
@@ -93,6 +94,27 @@ class SupportBot(
             }
                 return
         }
+
+        if(messageText != null && (messageText == BotButtons.AVAILABLE)) {
+            supportService.makeOperatorAvailable(user)
+            sendMessage(chatId, "You have been available")
+        }
+
+
+        if (messageText != null && messageText == BotButtons.BUSY) {
+
+            supportService.makeOperatorBusy(user)
+
+
+            supportService.getActiveSessionForUser(user)?.let { session ->
+                supportService.endSession(session)
+            }
+
+
+        }
+
+
+
 
         // Handle language selection (customer side)
         if (messageText != null && messageText.lowercase() in setOf("uz", "ru", "en")) {
@@ -170,16 +192,28 @@ class SupportBot(
                     telegramClient.execute(sendDoc)
 
                 }
+
+
+
                 else -> {
                     sendMessage(chatId, "Unsupported message type.")
 
                 }
             }
+
             return
         }
 
+        val allButtons = arrayOf(
+            BotButtons.START,
+            BotButtons.STOP,
+            BotButtons.AVAILABLE,
+            BotButtons.BUSY
+        )
+
+
         // If user is not in a session and not issuing a recognized command, show a hint
-        if (messageText != null && !messageText.startsWith("/")) {
+        if (messageText != null && !messageText.startsWith("/") && messageText !in allButtons) {
             sendMessage(chatId, "Please type /start to begin a support session or /operator languages to register as an operator.")
         }
     }

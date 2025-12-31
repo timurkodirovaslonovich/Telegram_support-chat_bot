@@ -12,10 +12,10 @@ interface ChatSessionRepository : JpaRepository<ChatSession, Long> {
     /**
      * Find an active session for a customer.
      */
-    fun findByCustomerAndStatus(customer: SimpleUser, status: String): ChatSession?
+    fun findByCustomerAndStatus(customer: SimpleUser, status: String): List<ChatSession>
 
     /**
      * Find an active session for an operator.
      */
-    fun findByOperatorAndStatus(operator: SimpleUser, status: String): ChatSession?
+    fun findByOperatorAndStatus(operator: SimpleUser, status: String): List<ChatSession>
 }

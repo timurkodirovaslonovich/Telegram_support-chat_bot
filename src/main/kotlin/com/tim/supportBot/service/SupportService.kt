@@ -49,15 +49,24 @@ class SupportService(
         }
     }
 
+
+
     /**
      * Persist the customer’s language choice and attempt to assign an operator.  Returns the assigned operator
      * or null if no operator was available (the customer will be placed on the waiting queue).
      */
     @Transactional
     fun selectLanguageForCustomer(customer: SimpleUser, language: String): SimpleUser? {
-        customer.selectedLanguage = language
-        userRepository.save(customer)
-        return assignOperatorOrQueue(customer)
+        val operator = userRepository.findFirstAvailableOperatorByLanguage("available", language)
+        if (operator != null) {
+            customer.selectedLanguage = language
+            userRepository.save(customer)
+            return assignOperatorOrQueue(customer)
+        } else {
+            return null
+        }
+
+
     }
 
     /**
@@ -83,14 +92,46 @@ class SupportService(
         }
     }
 
+    @Transactional
+    fun getFirstAvailableOperator(customer: SimpleUser): SimpleUser? {
+        val language = customer.selectedLanguage ?: return null
+        val operator = userRepository.findFirstAvailableOperatorByLanguage("available", language)
+        return operator
+
+    }
+    @Transactional
+    fun makeOperatorBusy(user: SimpleUser): SimpleUser? {
+        return run {
+            user.status = "busy"
+            userRepository.save(user)
+            user
+        }
+
+    }
+    @Transactional
+    fun makeOperatorAvailable(user: SimpleUser): SimpleUser? {
+        return run {
+            user.status = "available"
+            userRepository.save(user)
+            user
+        }
+    }
+
     /**
      * Mark the session as closed and free the operator.  After closing, the operator will be assigned the next
      * waiting customer (if any) that matches their supported languages.
      */
     @Transactional
     fun endSession(session: ChatSession) {
-        if (session.status != "active") return
-        session.status = "closed"
+        if (session.status != "active") {
+            return
+        }else {
+            session.status = "closed"
+            chatSessionRepository.save(session)
+            // free the operator and assign new customer
+            freeOperatorAndAssignNext(session.operator)
+        }
+
         chatSessionRepository.save(session)
         // free the operator and assign new customer
         freeOperatorAndAssignNext(session.operator)
@@ -123,9 +164,9 @@ class SupportService(
      */
     fun getActiveSessionForUser(user: SimpleUser): ChatSession? {
         return if (user.isOperator) {
-            chatSessionRepository.findByOperatorAndStatus(user, "active")
+            chatSessionRepository.findByOperatorAndStatus(user, "active").firstOrNull()
         } else {
-            chatSessionRepository.findByCustomerAndStatus(user, "active")
+            chatSessionRepository.findByCustomerAndStatus(user, "active").firstOrNull()
         }
     }
 }
