@@ -41,7 +41,7 @@ class SupportBot(
     /**
      * Returns the bot token.  Read from the BOT_TOKEN environment variable for security.
      */
-    override fun getBotToken(): String = System.getenv("BOT_TOKEN") ?: "7948810036:AAE2pCFjmdMEJ6isr2Qpm-DcoFcIUh8CPXE"
+    override fun getBotToken(): String = System.getenv("BOT_TOKEN") ?: ""
 
     /**
      * The consumer used by the long polling framework.
