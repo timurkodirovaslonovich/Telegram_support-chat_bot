@@ -83,7 +83,7 @@ class SupportBot(
         }
 
         // Handle /start command
-        if (messageText != null && (messageText == BotButtons.START) || messageText.startsWith("/start")) {
+        if ( message.photo !=null || messageText != null && (messageText == BotButtons.START) || messageText.startsWith("/start")) {
 
             // Reset any active session for this user
             supportService.getActiveSessionForUser(user)?.let { session ->
@@ -147,10 +147,17 @@ class SupportBot(
             if (session != null) {
                 supportService.endSession(session)
                 sendMessage(chatId, "Your support session has ended.")
-                sendCustomerMenu(chatId)
+//                sendCustomerMenu(chatId)
                 val targetId = if (user.isOperator) session.customer.telegramId else session.operator.telegramId
                 sendMessage(targetId, "The support session has been closed.")
-                sendOperatorMenu(targetId)
+               if(targetId == session.operator.telegramId) {
+                   sendOperatorMenu(targetId)
+                   sendCustomerMenu(chatId)
+               } else {
+                   sendOperatorMenu(chatId)
+                   sendCustomerMenu(targetId)
+               }
+
 
             } else {
                 sendMessage(chatId, "You are not in an active session.")
