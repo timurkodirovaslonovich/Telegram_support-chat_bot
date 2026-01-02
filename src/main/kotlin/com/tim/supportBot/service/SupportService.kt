@@ -32,7 +32,7 @@ class SupportService(
         val existing = userRepository.findByTelegramId(telegramId)
         return if (existing != null) {
             // update name if it has changed
-            if (name != null && existing.name != name) {
+            if (existing.name != name) {
                 existing.name = name
                 userRepository.save(existing)
             }
@@ -77,6 +77,7 @@ class SupportService(
     @Transactional
     fun assignOperatorOrQueue(customer: SimpleUser): SimpleUser? {
         val language = customer.selectedLanguage ?: return null
+
         val operator = userRepository.findFirstAvailableOperatorByLanguage("available", language)
         return if (operator != null) {
             operator.status = "busy"
@@ -90,6 +91,11 @@ class SupportService(
             }
             null
         }
+    }
+
+    @Transactional
+    fun getFirstCustomerInWaitingQueue(): SimpleUser? {
+        return waitingQueue.firstOrNull()
     }
 
     @Transactional

@@ -38,15 +38,16 @@ class SupportBot(
 
     // Initialise Telegram client once with the bot token
     private val telegramClient: TelegramClient = OkHttpTelegramClient(getBotToken())
+    //hardcode all buttons to be recognized by update messages
+    val allButtons = arrayOf(
+        BotButtons.START,
+        BotButtons.STOP,
+        BotButtons.AVAILABLE,
+        BotButtons.BUSY
+    )
 
-    /**
-     * Returns the bot token.  Read from the BOT_TOKEN environment variable for security.
-     */
     override fun getBotToken(): String = System.getenv("BOT_TOKEN") ?: "7948810036:AAE2pCFjmdMEJ6isr2Qpm-DcoFcIUh8CPXE"
 
-    /**
-     * The consumer used by the long polling framework.
-     */
     override fun getUpdatesConsumer(): LongPollingUpdateConsumer = this
 
     /**
@@ -104,8 +105,6 @@ class SupportBot(
         if (messageText != null && messageText == BotButtons.BUSY) {
 
             supportService.makeOperatorBusy(user)
-
-
             supportService.getActiveSessionForUser(user)?.let { session ->
                 supportService.endSession(session)
             }
@@ -129,11 +128,15 @@ class SupportBot(
                 // Notify both parties
                 sendMessage(chatId, "You have been connected to an operator. Please describe your issue.")
                 sendMessage(assignedOperator.telegramId, "New customer connected: ${user.name ?: user.telegramId}")
+                sendStopSessionKeyboard(assignedOperator.telegramId)
+                sendStopSessionKeyboard(chatId)
 
             } else {
                 sendMessage(chatId, "All operators are currently busy. You have been placed in the queue. Please wait.")
 
             }
+
+
             return
         }
 
@@ -144,8 +147,11 @@ class SupportBot(
             if (session != null) {
                 supportService.endSession(session)
                 sendMessage(chatId, "Your support session has ended.")
+                sendCustomerMenu(chatId)
                 val targetId = if (user.isOperator) session.customer.telegramId else session.operator.telegramId
                 sendMessage(targetId, "The support session has been closed.")
+                sendOperatorMenu(targetId)
+
             } else {
                 sendMessage(chatId, "You are not in an active session.")
             }
@@ -157,6 +163,8 @@ class SupportBot(
         if (activeSession != null) {
 
             val targetId: Long = if (user.isOperator) activeSession.customer.telegramId else activeSession.operator.telegramId
+            //strict customerId
+            val customerId: Long = activeSession.customer.id
             // Forward based on content type
             when {
                 message.hasText() -> {
@@ -164,7 +172,7 @@ class SupportBot(
                     if (!messageText!!.startsWith("/")) {
 
                         sendMessage(targetId, messageText)
-
+//                        sendStopSessionKeyboard(targetId)
                     }
                 }
                 message.hasPhoto() -> {
@@ -204,12 +212,7 @@ class SupportBot(
             return
         }
 
-        val allButtons = arrayOf(
-            BotButtons.START,
-            BotButtons.STOP,
-            BotButtons.AVAILABLE,
-            BotButtons.BUSY
-        )
+
 
 
         // If user is not in a session and not issuing a recognized command, show a hint
@@ -246,28 +249,19 @@ class SupportBot(
 
 
     private fun sendStopSessionKeyboard(chatId: Long) {
-        val keyboardRow = KeyboardRow().apply {
-            add("tugatish")
-        }
+        val keyboard = listOf(
+
+            KeyboardRow(listOf(BotButtons.STOP).map { KeyboardButton(it) })
+        )
+
 
         val replyMarkup = ReplyKeyboardMarkup.builder()
-        .keyboard(listOf(keyboardRow))
+        .keyboard(keyboard)
         .resizeKeyboard(true)
         .oneTimeKeyboard(true)
         .build()
 
-        val message = SendMessage.builder()
-        .chatId(chatId.toString())
-        .text("chatni tugatish uchun 'tugatish' tugmasini bosing")
-        .replyMarkup(replyMarkup)
-        .build()
-
-
-        try {
-            telegramClient.execute(message)
-        } catch (e: TelegramApiException) {
-            e.printStackTrace()
-        }
+        sendKeyboard(chatId, replyMarkup)
     }
 
     /**
@@ -287,7 +281,7 @@ class SupportBot(
     private fun sendKeyboard(chatId: Long, keyboardMarkup: ReplyKeyboardMarkup) {
         val message = SendMessage.builder()
         .chatId(chatId.toString())
-        .text("Choose an action")
+        .text("choose an action")
         .replyMarkup(keyboardMarkup)
         .build()
 
@@ -301,14 +295,14 @@ class SupportBot(
 
     private fun sendCustomerMenu(chatId: Long) {
         val keyboard = listOf(
-            KeyboardRow(listOf(KeyboardButton(BotButtons.START))),
             KeyboardRow(listOf(BotButtons.UZ, BotButtons.RU, BotButtons.EN).map { KeyboardButton(it) })
         )
 
         val replyMarkup = ReplyKeyboardMarkup.builder()
-        .keyboard(keyboard)
-        .oneTimeKeyboard(true)
+            .keyboard(keyboard)
+            .oneTimeKeyboard(true)
             .resizeKeyboard(true)
+            .selective(true)
             .build()
 
         sendKeyboard(chatId, replyMarkup)
@@ -319,18 +313,43 @@ class SupportBot(
 
         val keyboard = listOf(
             KeyboardRow(listOf(BotButtons.AVAILABLE, BotButtons.BUSY).map { KeyboardButton(it) }),
-            KeyboardRow(listOf(BotButtons.STOP).map { KeyboardButton(it) })
+//            KeyboardRow(listOf(BotButtons.STOP).map { KeyboardButton(it) })
         )
 
         val replyMarkup = ReplyKeyboardMarkup.builder()
             .keyboard(keyboard)
             .oneTimeKeyboard(true)
+            .selective(true)
             .resizeKeyboard(true)
             .build()
 
         sendKeyboard(chatId, replyMarkup)
     }
 
+    private fun sendLangsKeyboard(chatId: Long) {
+        val keyboard = listOf(
+        KeyboardRow(listOf(BotButtons.UZ, BotButtons.RU, BotButtons.EN).map { KeyboardButton(it) })
+        )
+
+
+        val replyMarkup = ReplyKeyboardMarkup.builder()
+        .keyboard(keyboard)
+        .oneTimeKeyboard(true)
+        .resizeKeyboard(true)
+        .build()
+
+       val message = SendMessage.builder()
+        .chatId(chatId.toString())
+        .text("Choose your language:")
+        .replyMarkup(replyMarkup)
+        .build()
+
+        try {
+            telegramClient.execute(message)
+        } catch (e: TelegramApiException) {
+            e.printStackTrace()
+        }
+    }
 
 
     /**
