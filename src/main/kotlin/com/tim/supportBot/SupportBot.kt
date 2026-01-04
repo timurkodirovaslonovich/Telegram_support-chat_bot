@@ -83,7 +83,10 @@ class SupportBot(
         }
 
         // Handle /start command
-        if ( message.photo !=null || messageText != null && (messageText == BotButtons.START) || messageText.startsWith("/start")) {
+        if (messageText != null &&
+            (messageText == BotButtons.START || messageText.startsWith("/start"))
+        )
+        {
 
             // Reset any active session for this user
             supportService.getActiveSessionForUser(user)?.let { session ->
