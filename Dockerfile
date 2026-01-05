@@ -1,26 +1,29 @@
-# 1️⃣ Builder stage — compile the app
-FROM gradle:8.0-jdk17 AS build
+############################
+# Builder stage
+############################
+FROM gradle:8-jdk17 AS builder
 
 # Set working directory
+WORKDIR /home/gradle/project
+
+# Copy Gradle wrapper and source
+COPY --chown=gradle:gradle . .
+
+# Use the Gradle wrapper to build the app
+RUN ./gradlew clean bootJar --no-daemon
+
+############################
+# Runtime stage
+############################
+FROM eclipse-temurin:17-jre
+
 WORKDIR /app
 
-# Copy project files
-COPY . .
+# Copy the built fat JAR from the builder stage
+COPY --from=builder /home/gradle/project/build/libs/*.jar app.jar
 
-# Cache dependencies and build
-RUN gradle clean build --no-daemon
-
-# 2️⃣ Runtime stage — run the compiled JAR
-FROM eclipse-temurin:17-jre-alpine
-
-WORKDIR /app
-
-# Copy the built jar from the builder
-COPY --from=build /app/build/libs/*.jar app.jar
-
-# Expose a port (optional – your bot probably doesn’t expose a web server)
-# If your app opens a webhook server, change this accordingly
+# Expose port if your bot listens (optional, only for webhook/server)
 EXPOSE 8080
 
-# Run the JAR
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Run the application
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
